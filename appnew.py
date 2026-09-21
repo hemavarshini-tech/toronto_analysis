@@ -40,15 +40,14 @@ st.markdown(
 @st.cache_data
 def load_data():
 
-    raw_file = "Toronto island ferry tickets.csv"
+    raw_file = "Toronto Island Ferry Tickets.xls"
 
-    df = pd.read_csv(raw_file)
+    df = pd.read_excel(raw_file)
 
     return df
 
 
 df = load_data()
-
 
 
 # ============================================================
