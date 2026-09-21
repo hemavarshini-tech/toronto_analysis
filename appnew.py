@@ -81,23 +81,34 @@ st.sidebar.header("🔎 Dashboard Filters")
 # DATE FILTER
 # ------------------------------------------------------------
 
+# ============================================================
+# FIND DATE / TIMESTAMP COLUMN
+# ============================================================
+
+date_column = None
+
+for col in df.columns:
+    if str(col).strip().lower() in [
+        "timestamp",
+        "date",
+        "datetime",
+        "date time",
+        "date_time"
+    ]:
+        date_column = col
+        break
+
+if date_column is None:
+    st.error("No date/timestamp column found in the dataset.")
+    st.write("Available columns:", list(df.columns))
+    st.stop()
+
+df["Timestamp"] = pd.to_datetime(df[date_column], errors="coerce")
+
+df = df.dropna(subset=["Timestamp"])
+
 min_date = df["Timestamp"].min().date()
 max_date = df["Timestamp"].max().date()
-
-start_date = st.sidebar.date_input(
-    "Start Date",
-    value=min_date,
-    min_value=min_date,
-    max_value=max_date
-)
-
-end_date = st.sidebar.date_input(
-    "End Date",
-    value=max_date,
-    min_value=min_date,
-    max_value=max_date
-)
-
 
 # ------------------------------------------------------------
 # YEAR FILTER
