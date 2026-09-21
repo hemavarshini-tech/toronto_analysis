@@ -38,9 +38,21 @@ st.markdown(
 @st.cache_data
 def load_data():
 
-    raw_file = "Toronto Island Ferry Tickets.xls"
+    file_path = "Toronto Island Ferry Tickets.xls"
 
-    df = pd.read_excel(raw_file, engine="xlrd")
+    try:
+        # Try reading the file as a CSV/text file
+        df = pd.read_csv(file_path)
+
+    except Exception:
+        try:
+            # Try reading as tab-separated data
+            df = pd.read_csv(file_path, sep="\t")
+
+        except Exception as e:
+            st.error("Unable to read the dataset.")
+            st.write("Error:", e)
+            st.stop()
 
     return df
 
