@@ -26,10 +26,11 @@ st.markdown(
     """
     **Toronto Island Park Ferry Operations Dashboard**
 
-    This dashboard analyzes ticket sales, ticket redemptions,
+    This dashboard analyzes sales count, ticket redemptions,
     passenger movement, peak demand periods, and seasonal trends.
     """
 )
+
 
 # ============================================================
 # LOAD DATA
@@ -41,12 +42,10 @@ def load_data():
     file_path = "Toronto Island Ferry Tickets.xls"
 
     try:
-        # Try reading the file as a CSV/text file
         df = pd.read_csv(file_path)
 
     except Exception:
         try:
-            # Try reading as tab-separated data
             df = pd.read_csv(file_path, sep="\t")
 
         except Exception as e:
@@ -70,16 +69,33 @@ if df.empty:
 
     st.stop()
 
+
 # ============================================================
-# SIDEBAR
+# CLEAN COLUMN NAMES
 # ============================================================
 
-st.sidebar.header("🔎 Dashboard Filters")
+df.columns = (
+    df.columns
+    .astype(str)
+    .str.strip()
+)
 
 
-# ------------------------------------------------------------
-# DATE FILTER
-# ------------------------------------------------------------
+# ============================================================
+# NORMALIZE COLUMN NAMES FOR SEARCHING
+# ============================================================
+
+normalized_columns = {
+    col: (
+        str(col)
+        .strip()
+        .lower()
+        .replace("_", " ")
+        .replace("-", " ")
+    )
+    for col in df.columns
+}
+
 
 # ============================================================
 # FIND DATE / TIMESTAMP COLUMN
@@ -87,52 +103,252 @@ st.sidebar.header("🔎 Dashboard Filters")
 
 date_column = None
 
-for col in df.columns:
-    if str(col).strip().lower() in [
-        "timestamp",
-        "date",
-        "datetime",
-        "date time",
-        "date_time"
-    ]:
+date_keywords = [
+    "timestamp",
+    "date",
+    "datetime",
+    "date time",
+    "date_time"
+]
+
+for col, normalized in normalized_columns.items():
+
+    if any(keyword in normalized for keyword in date_keywords):
+
         date_column = col
+
         break
 
+
 if date_column is None:
-    st.error("No date/timestamp column found in the dataset.")
-    st.write("Available columns:", list(df.columns))
+
+    st.error("No date/timestamp column was found.")
+
+    st.write("Available columns:")
+
+    st.write(list(df.columns))
+
     st.stop()
 
-df["Timestamp"] = pd.to_datetime(df[date_column], errors="coerce")
 
-df = df.dropna(subset=["Timestamp"])
+# ============================================================
+# CREATE TIMESTAMP
+# ============================================================
 
-min_date = df["Timestamp"].min().date()
-max_date = df["Timestamp"].max().date()
-
-# ------------------------------------------------------------
-# YEAR FILTER
-# ------------------------------------------------------------
-# Create Year column from Timestamp
-df["Year"] = df["Timestamp"].dt.year
-
-years = sorted(df["Year"].dropna().unique())
-
-# ------------------------------------------------------------
-# DAY TYPE FILTER
-# ------------------------------------------------------------
-
-# Create DayType column
-df["DayType"] = df["Timestamp"].dt.dayofweek.apply(
-    lambda x: "Weekend" if x >= 5 else "Weekday"
+df["Timestamp"] = pd.to_datetime(
+    df[date_column],
+    errors="coerce"
 )
 
-day_types = sorted(df["DayType"].unique())
+
+df = df.dropna(
+    subset=["Timestamp"]
+).copy()
 
 
-# ------------------------------------------------------------
+if df.empty:
+
+    st.error(
+        "The dataset does not contain valid date/timestamp values."
+    )
+
+    st.stop()
+
+
+# ============================================================
+# FIND SALES COUNT COLUMN
+# ============================================================
+
+sales_column = None
+
+for col, normalized in normalized_columns.items():
+
+    if "sales count" in normalized:
+
+        sales_column = col
+
+        break
+
+
+if sales_column is None:
+
+    st.error("Sales Count column was not found.")
+
+    st.write("Available columns:")
+
+    st.write(list(df.columns))
+
+    st.stop()
+
+
+# ============================================================
+# CREATE STANDARD SALES COUNT COLUMN
+# ============================================================
+
+df["Sales Count"] = pd.to_numeric(
+    df[sales_column],
+    errors="coerce"
+).fillna(0)
+
+
+# ============================================================
+# FIND REDEMPTION COLUMN
+# ============================================================
+
+redemption_column = None
+
+redemption_keywords = [
+    "redemption count",
+    "redemptions",
+    "redemption",
+    "redeemed",
+    "ticket redemption"
+]
+
+for col, normalized in normalized_columns.items():
+
+    if any(keyword in normalized for keyword in redemption_keywords):
+
+        redemption_column = col
+
+        break
+
+
+if redemption_column is None:
+
+    st.error("Ticket redemption column was not found.")
+
+    st.write("Available columns:")
+
+    st.write(list(df.columns))
+
+    st.stop()
+
+
+# ============================================================
+# CREATE STANDARD REDEMPTION COLUMN
+# ============================================================
+
+df["Redemption Count"] = pd.to_numeric(
+    df[redemption_column],
+    errors="coerce"
+).fillna(0)
+
+
+# ============================================================
+# CREATE TIME FEATURES
+# ============================================================
+
+df["Year"] = df["Timestamp"].dt.year
+
+df["Month"] = df["Timestamp"].dt.month
+
+df["MonthName"] = df["Timestamp"].dt.month_name()
+
+df["Hour"] = df["Timestamp"].dt.hour
+
+df["Day"] = df["Timestamp"].dt.day
+
+df["DayOfWeek"] = df["Timestamp"].dt.day_name()
+
+
+# ============================================================
+# CREATE DAY TYPE
+# ============================================================
+
+df["DayType"] = np.where(
+    df["Timestamp"].dt.dayofweek >= 5,
+    "Weekend",
+    "Weekday"
+)
+
+
+# ============================================================
+# CREATE NET MOVEMENT
+# ============================================================
+
+df["Net Movement"] = (
+    df["Sales Count"]
+    - df["Redemption Count"]
+)
+
+
+# ============================================================
+# DATE RANGE
+# ============================================================
+
+min_date = df["Timestamp"].min().date()
+
+max_date = df["Timestamp"].max().date()
+
+
+# ============================================================
+# SIDEBAR
+# ============================================================
+
+st.sidebar.header("🔎 Dashboard Filters")
+
+
+# ============================================================
+# DATE FILTER
+# ============================================================
+
+selected_dates = st.sidebar.date_input(
+    "Select Date Range",
+    value=(min_date, max_date),
+    min_value=min_date,
+    max_value=max_date
+)
+
+
+if isinstance(selected_dates, tuple) and len(selected_dates) == 2:
+
+    start_date = selected_dates[0]
+
+    end_date = selected_dates[1]
+
+else:
+
+    start_date = min_date
+
+    end_date = max_date
+
+
+# ============================================================
+# YEAR FILTER
+# ============================================================
+
+years = sorted(
+    df["Year"].dropna().unique()
+)
+
+
+selected_years = st.sidebar.multiselect(
+    "Select Year",
+    years,
+    default=years
+)
+
+
+# ============================================================
+# DAY TYPE FILTER
+# ============================================================
+
+day_types = sorted(
+    df["DayType"].unique()
+)
+
+
+selected_day_types = st.sidebar.multiselect(
+    "Select Day Type",
+    day_types,
+    default=day_types
+)
+
+
+# ============================================================
 # HOUR FILTER
-# ------------------------------------------------------------
+# ============================================================
 
 hour_range = st.sidebar.slider(
     "Hour Range",
@@ -146,13 +362,15 @@ hour_range = st.sidebar.slider(
 # APPLY FILTERS
 # ============================================================
 
-start_date = df["Timestamp"].min().date()
-end_date = df["Timestamp"].max().date()
-
 filtered_df = df[
     (df["Timestamp"].dt.date >= start_date) &
-    (df["Timestamp"].dt.date <= end_date)
-]
+    (df["Timestamp"].dt.date <= end_date) &
+    (df["Year"].isin(selected_years)) &
+    (df["DayType"].isin(selected_day_types)) &
+    (df["Hour"] >= hour_range[0]) &
+    (df["Hour"] <= hour_range[1])
+].copy()
+
 
 # ============================================================
 # CHECK FILTER RESULT
@@ -172,18 +390,27 @@ if filtered_df.empty:
 # KPI CALCULATIONS
 # ============================================================
 
-total_sales = filtered_df["Tickets Sold"].sum()
+total_sales = filtered_df["Sales Count"].sum()
 
 total_redemptions = filtered_df["Redemption Count"].sum()
 
 net_movement = filtered_df["Net Movement"].sum()
 
 
+# ============================================================
+# HOURLY SALES
+# ============================================================
+
 hourly_sales = (
     filtered_df
-    .groupby("Hour")["Tickets Sold"]
+    .groupby("Hour")["Sales Count"]
     .sum()
 )
+
+
+# ============================================================
+# HOURLY REDEMPTIONS
+# ============================================================
 
 hourly_redemptions = (
     filtered_df
@@ -192,10 +419,18 @@ hourly_redemptions = (
 )
 
 
+# ============================================================
+# PEAK SALES
+# ============================================================
+
 peak_sales_hour = hourly_sales.idxmax()
 
 peak_sales_value = hourly_sales.max()
 
+
+# ============================================================
+# PEAK REDEMPTION
+# ============================================================
 
 peak_redemption_hour = hourly_redemptions.idxmax()
 
@@ -208,14 +443,13 @@ peak_redemption_value = hourly_redemptions.max()
 
 st.subheader("📊 Key Performance Indicators")
 
-
 col1, col2, col3, col4 = st.columns(4)
 
 
 with col1:
 
     st.metric(
-        "🎟️ Total Tickets Sold",
+        "🎟️ Total Sales",
         f"{total_sales:,.0f}"
     )
 
@@ -253,7 +487,6 @@ st.divider()
 
 st.subheader("📋 Dataset Overview")
 
-
 info_col1, info_col2, info_col3 = st.columns(3)
 
 
@@ -282,16 +515,16 @@ with info_col3:
 
 
 # ============================================================
-# TICKET SALES OVER TIME
+# SALES OVER TIME
 # ============================================================
 
-st.subheader("📈 Ticket Sales Over Time")
+st.subheader("📈 Sales Over Time")
 
 
 daily_sales = (
     filtered_df
     .set_index("Timestamp")
-    .resample("D")["Tickets Sold"]
+    .resample("D")["Sales Count"]
     .sum()
     .reset_index()
 )
@@ -300,14 +533,14 @@ daily_sales = (
 fig_daily = px.line(
     daily_sales,
     x="Timestamp",
-    y="Tickets Sold",
-    title="Daily Ticket Sales"
+    y="Sales Count",
+    title="Daily Sales Count"
 )
 
 
 fig_daily.update_layout(
     xaxis_title="Date",
-    yaxis_title="Tickets Sold"
+    yaxis_title="Sales Count"
 )
 
 
@@ -321,13 +554,13 @@ st.plotly_chart(
 # SALES VS REDEMPTIONS
 # ============================================================
 
-st.subheader("🎟️ Ticket Sales vs Redemptions")
+st.subheader("🎟️ Sales Count vs Redemptions")
 
 
 hourly_comparison = (
     filtered_df
     .groupby("Hour")[
-        ["Tickets Sold", "Redemption Count"]
+        ["Sales Count", "Redemption Count"]
     ]
     .sum()
     .reset_index()
@@ -340,9 +573,9 @@ fig_comparison = go.Figure()
 fig_comparison.add_trace(
     go.Scatter(
         x=hourly_comparison["Hour"],
-        y=hourly_comparison["Tickets Sold"],
+        y=hourly_comparison["Sales Count"],
         mode="lines+markers",
-        name="Tickets Sold"
+        name="Sales Count"
     )
 )
 
@@ -358,7 +591,7 @@ fig_comparison.add_trace(
 
 
 fig_comparison.update_layout(
-    title="Hourly Ticket Sales vs Redemptions",
+    title="Hourly Sales Count vs Redemptions",
     xaxis_title="Hour of Day",
     yaxis_title="Count"
 )
@@ -387,7 +620,7 @@ with col1:
 
     hourly_data = (
         filtered_df
-        .groupby("Hour")["Tickets Sold"]
+        .groupby("Hour")["Sales Count"]
         .sum()
         .reset_index()
     )
@@ -396,14 +629,14 @@ with col1:
     fig_hour = px.bar(
         hourly_data,
         x="Hour",
-        y="Tickets Sold",
-        title="Ticket Sales by Hour"
+        y="Sales Count",
+        title="Sales Count by Hour"
     )
 
 
     fig_hour.update_layout(
         xaxis_title="Hour",
-        yaxis_title="Tickets Sold"
+        yaxis_title="Sales Count"
     )
 
 
@@ -423,7 +656,7 @@ with col2:
 
     day_type_data = (
         filtered_df
-        .groupby("DayType")["Tickets Sold"]
+        .groupby("DayType")["Sales Count"]
         .sum()
         .reset_index()
     )
@@ -432,14 +665,14 @@ with col2:
     fig_daytype = px.bar(
         day_type_data,
         x="DayType",
-        y="Tickets Sold",
-        title="Ticket Sales: Weekday vs Weekend"
+        y="Sales Count",
+        title="Sales Count: Weekday vs Weekend"
     )
 
 
     fig_daytype.update_layout(
         xaxis_title="Day Type",
-        yaxis_title="Tickets Sold"
+        yaxis_title="Sales Count"
     )
 
 
@@ -453,12 +686,12 @@ with col2:
 # MONTHLY TREND
 # ============================================================
 
-st.subheader("📅 Monthly Ticket Sales")
+st.subheader("📅 Monthly Sales Count")
 
 
 monthly_data = (
     filtered_df
-    .groupby("Month")["Tickets Sold"]
+    .groupby("Month")["Sales Count"]
     .sum()
     .reset_index()
 )
@@ -467,14 +700,14 @@ monthly_data = (
 fig_month = px.bar(
     monthly_data,
     x="Month",
-    y="Tickets Sold",
-    title="Ticket Sales by Month"
+    y="Sales Count",
+    title="Sales Count by Month"
 )
 
 
 fig_month.update_layout(
     xaxis_title="Month",
-    yaxis_title="Tickets Sold"
+    yaxis_title="Sales Count"
 )
 
 
@@ -488,12 +721,12 @@ st.plotly_chart(
 # YEARLY TREND
 # ============================================================
 
-st.subheader("📆 Yearly Ticket Sales")
+st.subheader("📆 Yearly Sales Count")
 
 
 yearly_data = (
     filtered_df
-    .groupby("Year")["Tickets Sold"]
+    .groupby("Year")["Sales Count"]
     .sum()
     .reset_index()
 )
@@ -502,15 +735,15 @@ yearly_data = (
 fig_year = px.line(
     yearly_data,
     x="Year",
-    y="Tickets Sold",
+    y="Sales Count",
     markers=True,
-    title="Yearly Ticket Sales Trend"
+    title="Yearly Sales Count Trend"
 )
 
 
 fig_year.update_layout(
     xaxis_title="Year",
-    yaxis_title="Tickets Sold"
+    yaxis_title="Sales Count"
 )
 
 
@@ -524,7 +757,7 @@ st.plotly_chart(
 # DAY OF WEEK ANALYSIS
 # ============================================================
 
-st.subheader("🗓️ Ticket Sales by Day of Week")
+st.subheader("🗓️ Sales Count by Day of Week")
 
 
 day_order = [
@@ -540,9 +773,10 @@ day_order = [
 
 day_data = (
     filtered_df
-    .groupby("DayOfWeek")["Tickets Sold"]
+    .groupby("DayOfWeek")["Sales Count"]
     .sum()
     .reindex(day_order)
+    .fillna(0)
     .reset_index()
 )
 
@@ -550,14 +784,14 @@ day_data = (
 fig_day = px.bar(
     day_data,
     x="DayOfWeek",
-    y="Tickets Sold",
-    title="Ticket Sales by Day of Week"
+    y="Sales Count",
+    title="Sales Count by Day of Week"
 )
 
 
 fig_day.update_layout(
     xaxis_title="Day",
-    yaxis_title="Tickets Sold"
+    yaxis_title="Sales Count"
 )
 
 
@@ -575,14 +809,17 @@ st.subheader("🔥 Demand Heatmap")
 
 
 heatmap_data = filtered_df.pivot_table(
-    values="Tickets Sold",
+    values="Sales Count",
     index="DayOfWeek",
     columns="Hour",
-    aggfunc="sum"
+    aggfunc="sum",
+    fill_value=0
 )
 
 
-heatmap_data = heatmap_data.reindex(day_order)
+heatmap_data = heatmap_data.reindex(
+    day_order
+)
 
 
 fig_heatmap = px.imshow(
@@ -590,9 +827,9 @@ fig_heatmap = px.imshow(
     labels={
         "x": "Hour",
         "y": "Day",
-        "color": "Tickets Sold"
+        "color": "Sales Count"
     },
-    title="Ticket Sales by Day and Hour",
+    title="Sales Count by Day and Hour",
     aspect="auto"
 )
 
@@ -668,7 +905,7 @@ with peak_col1:
 with peak_col2:
 
     st.metric(
-        "Peak Sales",
+        "Peak Sales Count",
         f"{peak_value:,.0f}"
     )
 
@@ -684,7 +921,7 @@ with peak_col3:
 with peak_col4:
 
     st.metric(
-        "Off-Peak Sales",
+        "Off-Peak Sales Count",
         f"{off_peak_value:,.0f}"
     )
 
@@ -706,7 +943,7 @@ top_5_hours = (
 
 top_5_hours.columns = [
     "Hour",
-    "Tickets Sold"
+    "Sales Count"
 ]
 
 
@@ -734,7 +971,7 @@ bottom_5_hours = (
 
 bottom_5_hours.columns = [
     "Hour",
-    "Tickets Sold"
+    "Sales Count"
 ]
 
 
@@ -754,18 +991,21 @@ st.subheader("📈 Rolling Average Analysis")
 
 rolling_df = filtered_df.copy()
 
-rolling_df = rolling_df.sort_values("Timestamp")
+
+rolling_df = rolling_df.sort_values(
+    "Timestamp"
+)
 
 
 rolling_df["1H Rolling Average"] = (
-    rolling_df["Tickets Sold"]
+    rolling_df["Sales Count"]
     .rolling(4)
     .mean()
 )
 
 
 rolling_df["4H Rolling Average"] = (
-    rolling_df["Tickets Sold"]
+    rolling_df["Sales Count"]
     .rolling(16)
     .mean()
 )
@@ -795,9 +1035,9 @@ fig_rolling.add_trace(
 
 
 fig_rolling.update_layout(
-    title="Ticket Sales Rolling Average",
+    title="Sales Count Rolling Average",
     xaxis_title="Timestamp",
-    yaxis_title="Average Tickets Sold"
+    yaxis_title="Average Sales Count"
 )
 
 
@@ -825,7 +1065,9 @@ st.dataframe(
 # DOWNLOAD FILTERED DATA
 # ============================================================
 
-csv_data = filtered_df.to_csv(index=False)
+csv_data = filtered_df.to_csv(
+    index=False
+)
 
 
 st.download_button(
@@ -841,6 +1083,7 @@ st.download_button(
 # ============================================================
 
 st.divider()
+
 
 st.caption(
     "Toronto Ferry Ticket Sales & Redemption Analytics | "
