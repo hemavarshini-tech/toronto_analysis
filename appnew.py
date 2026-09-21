@@ -38,7 +38,7 @@ st.markdown(
 
 @st.cache_data
 def load_data():
-    cleaned_file = "cleaned_totonto_ferry_data.csv"
+   cleaned_file = "cleaned_toronto_ferry_data.xls"
     raw_file = "Toronto island ferry tickets.csv"
 
     try:
