@@ -146,15 +146,13 @@ hour_range = st.sidebar.slider(
 # APPLY FILTERS
 # ============================================================
 
+start_date = df["Timestamp"].min().date()
+end_date = df["Timestamp"].max().date()
+
 filtered_df = df[
     (df["Timestamp"].dt.date >= start_date) &
-    (df["Timestamp"].dt.date <= end_date) &
-    (df["Year"].isin(selected_years)) &
-    (df["DayType"].isin(selected_day_types)) &
-    (df["Hour"] >= hour_range[0]) &
-    (df["Hour"] <= hour_range[1])
-].copy()
-
+    (df["Timestamp"].dt.date <= end_date)
+]
 
 # ============================================================
 # CHECK FILTER RESULT
