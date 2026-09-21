@@ -38,7 +38,7 @@ st.markdown(
 
 @st.cache_data
 def load_data():
-   cleaned_file = "cleaned_toronto_ferry_data.xls"
+    cleaned_file = "cleaned_toronto_ferry_data.xls"
     raw_file = "Toronto island ferry tickets.csv"
 
     try:
@@ -48,7 +48,7 @@ def load_data():
             st.warning("Cleaned file is empty. Loading original dataset.")
             df = pd.read_csv(raw_file)
 
-    except (FileNotFoundError, pd.errors.EmptyDataError):
+    except (FileNotFoundError, ValueError):
         st.warning("Cleaned dataset not available. Loading original dataset.")
         df = pd.read_csv(raw_file)
 
