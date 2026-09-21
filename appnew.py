@@ -36,19 +36,14 @@ st.markdown(
 # LOAD DATASET
 # ============================================================
 
-
 @st.cache_data
 def load_data():
 
     raw_file = "Toronto Island Ferry Tickets.xls"
 
-    df = pd.read_excel(raw_file)
+    df = pd.read_excel(raw_file, engine="xlrd")
 
     return df
-
-
-df = load_data()
-
 
 # ============================================================
 # CHECK DATASET
