@@ -113,15 +113,10 @@ max_date = df["Timestamp"].max().date()
 # ------------------------------------------------------------
 # YEAR FILTER
 # ------------------------------------------------------------
+# Create Year column from Timestamp
+df["Year"] = df["Timestamp"].dt.year
 
-years = sorted(df["Year"].unique())
-
-selected_years = st.sidebar.multiselect(
-    "Select Year",
-    years,
-    default=years
-)
-
+years = sorted(df["Year"].dropna().unique())
 
 # ------------------------------------------------------------
 # DAY TYPE FILTER
