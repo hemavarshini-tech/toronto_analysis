@@ -42,7 +42,7 @@ def load_data():
     raw_file = "Toronto island ferry tickets.csv"
 
     try:
-        df = pd.read_csv(cleaned_file)
+        df = pd.read_excel(cleaned_file)
 
         if df.empty:
             st.warning("Cleaned file is empty. Loading original dataset.")
