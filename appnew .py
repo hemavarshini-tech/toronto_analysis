@@ -38,60 +38,24 @@ st.markdown(
 
 @st.cache_data
 def load_data():
+    cleaned_file = "cleaned_totonto_ferry_data.csv"
+    raw_file = "Toronto island ferry tickets.csv"
 
     try:
-        df = pd.read_csv("cleaned_toronto_ferry_data.csv")
-    except FileNotFoundError:
-        df = pd.read_csv("ferry_data.csv")
+        df = pd.read_csv(cleaned_file)
 
-    # Convert timestamp
-    df["Timestamp"] = pd.to_datetime(
-        df["Timestamp"],
-        errors="coerce"
-    )
+        if df.empty:
+            st.warning("Cleaned file is empty. Loading original dataset.")
+            df = pd.read_csv(raw_file)
 
-    # Remove invalid timestamps
-    df = df.dropna(subset=["Timestamp"])
-
-    # Sort chronologically
-    df = df.sort_values("Timestamp")
-
-    # Create features if they don't already exist
-
-    if "Hour" not in df.columns:
-        df["Hour"] = df["Timestamp"].dt.hour
-
-    if "Day" not in df.columns:
-        df["Day"] = df["Timestamp"].dt.day
-
-    if "DayOfWeek" not in df.columns:
-        df["DayOfWeek"] = df["Timestamp"].dt.day_name()
-
-    if "Month" not in df.columns:
-        df["Month"] = df["Timestamp"].dt.month
-
-    if "MonthName" not in df.columns:
-        df["MonthName"] = df["Timestamp"].dt.month_name()
-
-    if "Year" not in df.columns:
-        df["Year"] = df["Timestamp"].dt.year
-
-    if "DayType" not in df.columns:
-        df["DayType"] = df["Timestamp"].dt.dayofweek.apply(
-            lambda x: "Weekend" if x >= 5 else "Weekday"
-        )
-
-    if "Net Movement" not in df.columns:
-        df["Net Movement"] = (
-            df["Tickets Sold"] -
-            df["Redemption Count"]
-        )
+    except (FileNotFoundError, pd.errors.EmptyDataError):
+        st.warning("Cleaned dataset not available. Loading original dataset.")
+        df = pd.read_csv(raw_file)
 
     return df
 
 
 df = load_data()
-
 
 # ============================================================
 # CHECK DATASET
