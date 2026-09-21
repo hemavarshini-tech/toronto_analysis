@@ -36,26 +36,20 @@ st.markdown(
 # LOAD DATASET
 # ============================================================
 
+
 @st.cache_data
 def load_data():
-    cleaned_file = "cleaned_toronto_ferry_data.xls"
+
     raw_file = "Toronto island ferry tickets.csv"
 
-    try:
-        df = pd.read_excel(cleaned_file)
-
-        if df.empty:
-            st.warning("Cleaned file is empty. Loading original dataset.")
-            df = pd.read_csv(raw_file)
-
-    except (FileNotFoundError, ValueError):
-        st.warning("Cleaned dataset not available. Loading original dataset.")
-        df = pd.read_csv(raw_file)
+    df = pd.read_csv(raw_file)
 
     return df
 
 
 df = load_data()
+
+
 
 # ============================================================
 # CHECK DATASET
