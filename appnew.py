@@ -122,13 +122,12 @@ years = sorted(df["Year"].dropna().unique())
 # DAY TYPE FILTER
 # ------------------------------------------------------------
 
-day_types = sorted(df["DayType"].unique())
-
-selected_day_types = st.sidebar.multiselect(
-    "Day Type",
-    day_types,
-    default=day_types
+# Create DayType column
+df["DayType"] = df["Timestamp"].dt.dayofweek.apply(
+    lambda x: "Weekend" if x >= 5 else "Weekday"
 )
+
+day_types = sorted(df["DayType"].unique())
 
 
 # ------------------------------------------------------------
